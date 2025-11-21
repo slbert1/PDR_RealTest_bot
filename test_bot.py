@@ -15,6 +15,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from dotenv import load_dotenv
+from questions import QUESTIONS
 
 logging.basicConfig(level=logging.INFO)
 load_dotenv()
@@ -40,11 +41,7 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS users (
 conn.commit()
 
 # Завантаження питань (з захистом від крашу)
-try:
-    with open("pdr_questions.json", "r", encoding="utf-8") as f:
-        QUESTIONS = json.load(f)
-    logging.info(f"Завантажено {len(QUESTIONS)} питань")
-except FileNotFoundError:
+logging.info(f"Успішно завантажено {len(QUESTIONS)} питань з questions.py")
     logging.warning("pdr_questions.json не знайдено → тестовий режим")
     QUESTIONS = [
         {
