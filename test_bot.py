@@ -15,9 +15,17 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from dotenv import load_dotenv
 
 load_dotenv()
-BOT_TOKEN = "8411956938:AAHmajRawrTH1B6a_uIipPHwl0-9y9Nl4D4"
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
+PAYMENT_TOKEN = os.getenv("PAYMENT_PROVIDER_TOKEN")
+
+if not BOT_TOKEN:
+    raise ValueError("BOT_TOKEN не знайдено в змінних середовища!")
+
+bot = Bot(token=BOT_TOKEN, parse_mode="HTML")
+storage = MemoryStorage()
+dp = Dispatcher(storage=storage)
 
 # === БАЗА ПИТАНЬ ===
 QUESTIONS = [
