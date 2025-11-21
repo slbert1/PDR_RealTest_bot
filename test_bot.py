@@ -1,11 +1,10 @@
-# test_bot.py — Преміум ПДР-бот @PDR_RealTest_bot
-# 100% робочий на Render Web Service + UptimeRobot
-# Питання беруться з окремого файлу questions.py
+# test_bot.py — фінальна робоча версія (21.11.2025)
 
 import os
 import asyncio
 import sqlite3
 import logging
+import random                     # ← ДОДАНО!
 from datetime import datetime
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
@@ -16,7 +15,6 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from dotenv import load_dotenv
 
-# Налаштування логування та .env
 logging.basicConfig(level=logging.INFO)
 load_dotenv()
 
@@ -24,16 +22,16 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
 if not BOT_TOKEN:
-    raise ValueError("BOT_TOKEN не знайдено в змінних середовища!")
+    raise ValueError("BOT_TOKEN не знайдено!")
 
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
 
-# Підключення окремого файлу з питаннями
+# Підключаємо питання з окремого файлу
 from questions import QUESTIONS
 logging.info(f"Успішно завантажено {len(QUESTIONS)} питань з questions.py")
 
-# База користувачів (для майбутньої оплати)
+# База користувачів
 conn = sqlite3.connect("users.db", check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute('''CREATE TABLE IF NOT EXISTS users (
@@ -44,11 +42,9 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS users (
 )''')
 conn.commit()
 
-# Стани
 class TestStates(StatesGroup):
     passing = State()
 
-# Клавіатури
 def main_menu():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Пройти тест ПДР 2025", callback_data="start_test")],
@@ -56,24 +52,22 @@ def main_menu():
         [InlineKeyboardButton(text="Написати адміну", url="https://t.me/your_support")]
     ])
 
-# /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer(
         "Вітаю в <b>@PDR_RealTest_bot</b>!\n\n"
-        "Реальний тест ПДР 2025 — точно як у сервісному центрі МВС\n"
+        "Реальний тест ПДР 2025 — як у сервісному центрі МВС\n"
         "• 20 питань\n"
         "• 20 хвилин\n"
         "• максимум 2 помилки\n\n"
-        "Натисни кнопку нижче, щоб почати:",
+        "Натисни кнопку, щоб почати:",
         reply_markup=main_menu()
     )
 
-# Початок тесту
 @dp.callback_query(F.data == "start_test")
 async def begin_test(callback: types.CallbackQuery, state: FSMContext):
-    questions = random.sample(QUESTIONS, 20)
+    questions = random.sample(QUESTIONS, min(20, len(QUESTIONS)))  # на випадок якщо питань менше 20
     await state.set_data({
         "questions": questions,
         "answers": {},
@@ -85,7 +79,6 @@ async def begin_test(callback: types.CallbackQuery, state: FSMContext):
     await show_question(callback.message, state)
     await callback.answer()
 
-# Показ питання
 async def show_question(message: types.Message, state: FSMContext):
     data = await state.get_data()
     q = data["questions"][data["current"]]
@@ -118,9 +111,8 @@ async def show_question(message: types.Message, state: FSMContext):
     await message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows))
 
     if q.get("image"):
-        await bot.send_photo(message.chat.id, q["image"], caption="Зображення до питання")
+        await bot.send_photo(message.chat.id, q["image"], caption="Дивись уважно на зображення")
 
-# Обробка відповіді
 @dp.callback_query(F.data.startswith("ans_"))
 async def process_answer(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
@@ -140,7 +132,6 @@ async def process_answer(callback: types.CallbackQuery, state: FSMContext):
     else:
         await show_question(callback.message, state)
 
-# Фініш тесту
 async def finish_test(message: types.Message, state: FSMContext):
     data = await state.get_data()
     correct = sum(1 for i, a in data["answers"].items()
@@ -149,7 +140,7 @@ async def finish_test(message: types.Message, state: FSMContext):
     if data["errors"] <= 2:
         result = f"ВІТАЮ! Ти склав би іспит! Правильно\nПравильних: {correct}/20"
     else:
-        result = f"На жаль, не склав Помилки\nПомилок: {data['errors']} (дозволено 2)"
+        result = f"На жаль, не склав Помилки\nПомилок: {data['errors']} (максимум 2)"
 
     await message.edit_text(
         result + "\n\nПройти ще раз?",
@@ -164,7 +155,6 @@ async def finish_test(message: types.Message, state: FSMContext):
 async def back_menu(callback: types.CallbackQuery):
     await callback.message.edit_text("Головне меню:", reply_markup=main_menu())
 
-# Запуск
 async def main():
     logging.info("PDR RealTest Bot успішно запущено!")
     await dp.start_polling(bot)
